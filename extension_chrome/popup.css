@@ -8,11 +8,13 @@
   flex: 1;
   border-right: 1px solid #ccc;
   padding-right: 10px;
+  width: 200px;
 }
 
 .right-section {
   flex: 2;
   padding-left: 10px;
+  width: 300px;
 }
 
 h2, h3 {
@@ -40,5 +42,7 @@ li {
 
 img {
   width: 200px;
-  
+  height: 200px;
+  object-fit: cover;
+  border-radius: 5px;
 }
