@@ -1,19 +1,21 @@
 {
-    "manifest_version": 2,
+    "manifest_version": 3,
     "name": "Projet Factory",
     "version": "1.0",
     "description": "Description de votre extension",
-    "browser_action": {
+    "action": {
       "default_popup": "popup.html",
-      "default_icon": {
-        "16": "./icon/icon-16.png",
-        "48": "./icon/icon-48.png",
-        "128": "./icon/icon-128.png"
-      }
+      "default_icon": "./icon/logo.png"
+    },
+    "icons": {
+      "16": "icon/logo.png",
+      "48": "icon/logo.png",
+      "128": "icon/logo.png"
     },
     "permissions": [
-      "activeTab"
+      "activeTab",
+      "scripting"
     ]
-  }
+}
   
   
