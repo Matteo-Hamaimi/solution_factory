@@ -1,7 +1,7 @@
 // Fonction principale pour extraire les commentaires Airbnb
 function extractAirbnbComments() {
     // Sélectionnez tous les éléments avec la classe "ll4r2nl dir dir-ltr"
-    const commentElements = document.querySelectorAll('.ll4r2nl.dir.dir-ltr');
+    const commentElements = document.querySelectorAll('.teaser');
     
     // Créez un tableau pour stocker les commentaires extraits
     const comments = [];
