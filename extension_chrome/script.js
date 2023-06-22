@@ -58,12 +58,15 @@ function main() {
 
 document.addEventListener('DOMContentLoaded', main);
 
+
+
 // Fonction pour récupérer le contenu d'une page externe
 async function fetchPageContent(url) {
   try {
     const response = await fetch(url);
     if (response.ok) {
       const content = await response.text();
+      console.log('Contenu de la page :', content); // Affiche le contenu de la page dans la console
       return content;
     } else {
       console.error('Une erreur s\'est produite lors de la requête :', response.status);
@@ -75,12 +78,7 @@ async function fetchPageContent(url) {
   }
 }
 
-// Exemple d'utilisation
-const url = 'https://www.hephaistos-srh.fr/';
-fetchPageContent(url)
-  .then((content) => {
-    if (content) {
-      // Faites quelque chose avec le contenu récupéré, par exemple l'afficher dans la console
-      console.log('Contenu de la page :', content);
-    }
-  });
+// Exemple d'utilisation avec l'URL Airbnb
+const url = 'https://www.airbnb.fr/rooms/35525760?adults=1&category_tag=Tag%3A677&children=0&enable_m3_private_room=true&infants=0&pets=0&search_mode=flex_destinations_search&check_in=2023-06-14&check_out=2023-06-21&source_impression_id=p3_1686745196_FugjCf9K3M%2F7HZ%2By&previous_page_section_name=1000&federated_search_id=db910383-b5e1-4c20-9c5f-20e46a5261a1';
+fetchPageContent(url);
+
