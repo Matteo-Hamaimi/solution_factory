@@ -1,5 +1,12 @@
 from flask import Flask, request
-from transformers import AutoTokenizer, TFAutoModelForSequenceClassification, pipeline
+import torch
+from transformers import (
+    AutoTokenizer,
+    TFAutoModelForSequenceClassification,
+    pipeline,
+    PegasusForConditionalGeneration,
+    PegasusTokenizer,
+)
 import numpy as np
 from transformers import pipeline
 import pandas as pd
@@ -21,6 +28,45 @@ def load_model_roberta():
         "question-answering",
         model="deepset/roberta-base-squad2",
         tokenizer="deepset/roberta-base-squad2",
+    )
+
+
+def load_model_Pegasus1():
+    return pipeline(
+        "text-generation",
+        model="tuner007/pegasus_paraphrase",
+        tokenizer="tuner007/pegasus_paraphrase",
+    )
+
+
+def load_model_Pegasus():
+    model_name = "tuner007/pegasus_paraphrase"
+    torch_device = "cuda" if torch.cuda.is_available() else "cpu"
+    tokenizer = PegasusTokenizer.from_pretrained(model_name)
+    model = PegasusForConditionalGeneration.from_pretrained(model_name).to(torch_device)
+
+    def get_response(input_text, num_return_sequences, num_beams):
+        inputs = tokenizer(
+            [input_text],
+            truncation=True,
+            padding="longest",
+            max_length=60,
+            return_tensors="pt",
+        )
+        outputs = model.generate(
+            **inputs,
+            max_length=60,
+            num_beams=num_beams,
+            num_return_sequences=num_return_sequences,
+            temperature=1.5,
+        )
+        tgt_text = tokenizer.batch_decode(outputs, skip_special_tokens=True)
+        return tgt_text
+
+    return pipeline(
+        "text-generation",
+        model=model,
+        tokenizer=tokenizer,
     )
 
 
@@ -56,24 +102,106 @@ def get_global_score(comments):
     return np.mean([comment["score"] for comment in global_score])
 
 
-def get_chat_bot(comments):
+def get_chat_bot(question, context):
+    df = pd.DataFrame(context)
     QA_input = {
-        "question": "Why is model conversion important?",
-        "context": "The option to convert models between FARM and transformers gives freedom to the user and let people easily switch between frameworks.",
+        "question": str(question),
+        "context": str(
+            "".join(df[0]),
+        ),
     }
-    return roberta_analyzer(QA_input)
+    return Pegasus_analyzer(
+        roberta_analyzer(QA_input)["answer"], num_return_sequences=1, num_beams=1
+    )
+
+
+def get_upgrade_point(comments):
+    df = pd.DataFrame(get_scores(comments))
+    last_row_index = df.index[-1]
+
+    if len(comments) < 6:
+        QA_input_positve = {
+            "question": "What is the best feature of this product ?",
+            "context": str(
+                "".join(df["comment"][1]),
+            ),
+        }
+        QA_input_negative = {
+            "question": "What are the worst features of this product ?",
+            "context": str(
+                "".join(df["comment"]),
+            ),
+        }
+        return (
+            roberta_analyzer(QA_input_positve)["answer"],
+            roberta_analyzer(QA_input_negative)["answer"],
+        )
+    else:
+        QA_input_positive1 = {
+            "question": "What is the positive point?",
+            "context": str("".join(df["comment"].iloc[last_row_index])),
+        }
+        QA_input_positive2 = {
+            "question": "What is the positive point?",
+            "context": str("".join(df["comment"].iloc[last_row_index - 1])),
+        }
+        QA_input_positive3 = {
+            "question": "What is the positive point?",
+            "context": str("".join(df["comment"].iloc[last_row_index - 2])),
+        }
+        QA_input_negative1 = {
+            "question": "What is the negative point?",
+            "context": str("".join(df["comment"].iloc[0])),
+        }
+        QA_input_negative2 = {
+            "question": "What is the negative point?",
+            "context": str("".join(df["comment"].iloc[1])),
+        }
+        QA_input_negative3 = {
+            "question": "What is the negative point?",
+            "context": str("".join(df["comment"].iloc[2])),
+        }
+        return (
+            roberta_analyzer(QA_input_positive1)["answer"],
+            roberta_analyzer(QA_input_positive2)["answer"],
+            roberta_analyzer(QA_input_positive3)["answer"],
+            roberta_analyzer(QA_input_negative1)["answer"],
+            roberta_analyzer(QA_input_negative2)["answer"],
+            roberta_analyzer(QA_input_negative3)["answer"],
+        )
 
 
 def get_summary(comments):
     df = pd.DataFrame(get_scores(comments))
+    threshold = 0.2
     if len(comments) < 6:
-        result = point_analyzer("".join(df["comment"]), summary_words)
-        sorted_labels = sorted(
-            result["labels"],
-            key=lambda x: result["scores"][result["labels"].index(x)],
+        result_bad = point_analyzer("".join(df["comment"][1]), negative_words)
+        result_good = point_analyzer("".join(df["comment"][-1]), positive_words)
+        sorted_labels_bad = sorted(
+            result_bad["labels"],
+            key=lambda x: result_bad["scores"][result_bad["labels"].index(x)],
             reverse=True,
         )
-        return sorted_labels[:2], sorted_labels[-2:]
+        sorted_labels_bad = [
+            label
+            for label in sorted_labels_bad
+            if result_bad["scores"][result_bad["labels"].index(label)] > threshold
+        ]
+
+        sorted_labels_good = sorted(
+            result_good["labels"],
+            key=lambda x: result_good["scores"][result_good["labels"].index(x)],
+            reverse=True,
+        )
+        sorted_labels_good = [
+            label
+            for label in sorted_labels_good
+            if result_good["scores"][result_good["labels"].index(label)] > threshold
+        ]
+        return (
+            sorted_labels_bad,
+            sorted_labels_good,
+        )
 
     elif len(comments) < 11:
         result_bad = point_analyzer("".join(df["comment"][:3]), negative_words)
@@ -83,29 +211,26 @@ def get_summary(comments):
             key=lambda x: result_bad["scores"][result_bad["labels"].index(x)],
             reverse=True,
         )
+        sorted_labels_bad = [
+            label
+            for label in sorted_labels_bad
+            if result_bad["scores"][result_bad["labels"].index(label)] > threshold
+        ]
+
         sorted_labels_good = sorted(
             result_good["labels"],
             key=lambda x: result_good["scores"][result_good["labels"].index(x)],
             reverse=True,
         )
+        sorted_labels_good = [
+            label
+            for label in sorted_labels_good
+            if result_good["scores"][result_good["labels"].index(label)] > threshold
+        ]
         return (
-            sorted_labels_bad[:3],
-            sorted_labels_good[:3],
+            sorted_labels_bad,
+            sorted_labels_good,
         )
-    else:
-        result_bad = point_analyzer("".join(df["comment"][:5]), negative_words)
-        result_good = point_analyzer("".join(df["comment"][-5:]), positive_words)
-        sorted_labels_bad = sorted(
-            result_bad["labels"],
-            key=lambda x: result_bad["scores"][result_bad["labels"].index(x)],
-            reverse=True,
-        )
-        sorted_labels_good = sorted(
-            result_good["labels"],
-            key=lambda x: result_good["scores"][result_good["labels"].index(x)],
-            reverse=True,
-        )
-        return sorted_labels_bad[:5], sorted_labels_good[:5]
 
 
 app = Flask(__name__)
@@ -158,6 +283,8 @@ point_analyzer = load_model_point_summarizer()
 
 roberta_analyzer = load_model_roberta()
 
+Pegasus_analyzer = load_model_Pegasus()
+
 
 @app.get("/")
 def index():
@@ -176,6 +303,21 @@ def analyze_website():
         return f"Une erreur inattendue s'est produite : {e}", 500
 
     return {"score": get_global_score(comments), "summary": get_summary(comments)}
+
+
+@app.post("/chatbot")
+def chatbot_website():
+    try:
+        question = np.array(request.get_json()["question"])
+        context = np.array(request.get_json()["context"])
+    except KeyError as e:
+        return f"Une clé invalide a été utilisée : {e}", 400
+    except TypeError as e:
+        return f"Une erreur de type s'est produite : {e}", 400
+    except Exception as e:
+        return f"Une erreur inattendue s'est produite : {e}", 500
+
+    return {"answer": get_chat_bot(question, context)}
 
 
 if __name__ == "__main__":
