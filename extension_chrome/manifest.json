@@ -5,7 +5,8 @@
     "description": "Description de votre extension",
     "action": {
       "default_popup": "popup.html",
-      "default_icon": "./icon/logo.png"
+      "default_icon": "./icon/logo.png",
+      "default_title": "Get pages source"
     },
     "icons": {
       "16": "icon/logo.png",
@@ -13,9 +14,9 @@
       "128": "icon/logo.png"
     },
     "permissions": [
-      "activeTab",
-      "scripting"
-    ]
+      "scripting",
+      "activeTab"
+  ]
 }
-  
+
   
