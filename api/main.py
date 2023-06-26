@@ -10,6 +10,7 @@ from transformers import (
 import numpy as np
 from transformers import pipeline
 import pandas as pd
+from flask_cors import CORS
 
 
 def load_model_albert():
@@ -112,7 +113,7 @@ def get_chat_bot(question, context):
     }
     return Pegasus_analyzer(
         roberta_analyzer(QA_input)["answer"], num_return_sequences=1, num_beams=1
-    )
+    )[0]["generated_text"]
 
 
 def get_upgrade_point(comments):
@@ -234,6 +235,7 @@ def get_summary(comments):
 
 
 app = Flask(__name__)
+CORS(app)
 
 positive_words = [
     "Reliable",

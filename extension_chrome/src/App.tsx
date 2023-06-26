@@ -1,11 +1,29 @@
 import { useEffect, useState, useMemo } from "react";
+import logo from "./assets/logo.png";
 
 export default function Alyz() {
+  const [comments, setComments] = useState<string[]>([]);
   const [url, setUrl] = useState<string>("");
   const [doc, setDoc] = useState<Document>();
+  const [input, setInput] = useState<string>("");
   const [urlImage, setImageUrl] = useState<string>("");
-  const [title, setTitle] = useState<string>("");
-  const [description, setDescription] = useState<string>("");
+  const [messages, setMessages] = useState<
+    { type: "user" | "machine"; message: string }[]
+  >([
+    {
+      type: "machine",
+      message: "Bonjour, je suis Alyz, votre assistant virtuel",
+    },
+  ]);
+  const [productInfo] = useState<{
+    satisfaction: number;
+    positive: string[];
+    negative: string[];
+  }>({
+    satisfaction: 79,
+    positive: ["Bien situé"],
+    negative: ["Pas bien"],
+  });
 
   const domain = useMemo(() => {
     let urlObject;
@@ -36,7 +54,10 @@ export default function Alyz() {
         });
       })
       .then(function (results) {
-        return new DOMParser().parseFromString(results[0].result as string, "text/html");
+        return new DOMParser().parseFromString(
+          results[0].result as string,
+          "text/html"
+        );
       })
       .catch(function (error) {
         console.log(error);
@@ -48,6 +69,27 @@ export default function Alyz() {
     return tabs[0].url;
   };
 
+  const sendMessage = async () => {
+    if (!input.length) return;
+    setMessages((messages) => [...messages, { type: "user", message: input }]);
+    setInput("");
+    console.log(input, comments);
+    const response = await fetch(import.meta.env.VITE_API_URL + "/chatbot", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ question: input, context: [doc?.getElementById("feature-bullets")?.textContent,...comments ] }),
+    });
+
+    const data = await response.json();
+
+    setMessages((messages) => [
+      ...messages,
+      { type: "machine", message: data.answer },
+    ]);
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setUrl((await getUrl()) as string);
@@ -57,27 +99,41 @@ export default function Alyz() {
   }, []);
 
   useEffect(() => {
+    if (!messages.length) return;
+    const messageList = document.getElementById("messageList");
+    messageList?.scrollTo(0, messageList.scrollHeight);
+  }, [messages]);
+
+  useEffect(() => {
+    if (!doc) return;
     switch (domain) {
       case "Amazon":
         setImageUrl(
           doc?.getElementById("landingImage")?.getAttribute("src") as string
         );
+        console.log(doc?.getElementById("productTitle")?.innerText as string);
+        setMessages([
+          {
+            type: "machine",
+            message: "Je vois que vous êtes sur Amazon, sur le produit : ",
+          },
+          {
+            type: "machine",
+            message: doc?.getElementById("productTitle")?.innerText as string,
+          },
+          { type: "machine", message: "Je peux vous aider ?" },
+        ]);
 
-        setTitle(
-          doc?.getElementById("productTitle")?.textContent?.trim() as string
-        );
+        setComments(Array.prototype.slice
+          .call(doc?.getElementsByClassName("review-text"))
+          ?.map((e) => e.innerText))
 
-        setDescription(
-          doc?.querySelector("#feature-bullets")?.textContent?.trim() as string
-        );
         break;
     }
-  }, [domain, doc, urlImage, title, description]);
-
-  const satisfaction = 80;
+  }, [domain, doc, urlImage]);
 
   if (!["Amazon", "Airbnb", "Tripadvisor"].includes(domain as string)) {
-    return <div className="text-xl">{domain} not supported</div>;
+    return <div className="text-xl p-4">{domain} not supported</div>;
   }
 
   return (
@@ -86,28 +142,26 @@ export default function Alyz() {
         <div className="bg-white rounded-md flex flex-col items-center justify-center col-span-2 h-64 p-2">
           <div className="grow flex w-full gap-2 text-white">
             <div className="flex flex-col gap-2 grow">
-              <div className="w-full border-b text-black p-2 pt-0">
-                :) Julio - {domain}
+              <div className="flex gap-2 items-center border-b text-black p-2 pt-0">
+                <img src={logo} className="h-6 w-6" />
+                <div className="w-full  font-bold">Alyz</div>
               </div>
-              <div className="flex flex-col gap-2 overflow-scroll h-40 no-scrollbar">
-                <div className="bg-blue-500 rounded-md p-1 max-w-[50%] self-start">
-                  {title}
-                </div>
-                <div className="bg-blue-500 rounded-md p-1 max-w-[50%] self-start">
-                  {description}
-                </div>
-                <div className="bg-gray-400 rounded-md p-1 max-w-[50%] self-end">
-                  Combien de chambres ?
-                </div>
-                <div className="bg-blue-500 rounded-md p-1 max-w-[50%] self-start">
-                  100 chambres
-                </div>
-                <div className="bg-gray-400 rounded-md p-1 max-w-[50%] self-end">
-                  Combien de chambres ?
-                </div>
-                <div className="bg-blue-500 rounded-md p-1 max-w-[50%] self-start">
-                  100 chambres
-                </div>
+
+              <div
+                className="flex flex-col gap-2 overflow-scroll h-40 no-scrollbar"
+                id="messageList"
+              >
+                {messages.map((message) => (
+                  <div
+                    className={`max-w-[66%] px-4 py-1 rounded-2xl ${
+                      message.type === "machine"
+                        ? "bg-blue-500 self-start"
+                        : "bg-gray-400 self-end"
+                    }`}
+                  >
+                    {message.message}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -115,8 +169,19 @@ export default function Alyz() {
             <input
               type="text"
               className="rounded-full border grow focus:outline-none px-2"
+              placeholder="Posez votre question"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  sendMessage();
+                }
+              }}
             />
-            <div className="bg-blue-500 rounded-full stroke-white p-2 shadow">
+            <div
+              className="bg-blue-500 rounded-full stroke-white p-2 shadow"
+              onClick={sendMessage}
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -135,13 +200,10 @@ export default function Alyz() {
           </div>
         </div>
 
-        <div className="bg-white rounded-md h-full overflow-hidden flex justify-center items-center">
-          <img
-            src={urlImage}
-            className="object-cover h-full"
-          />
+        <div className="bg-white rounded-md h-64 overflow-hidden flex justify-center items-center">
+          <img src={urlImage} className="object-cover h-full" />
         </div>
-        <div className="bg-rose-300 rounded-md flex p-4 gap-4 justify-between col-span-2 text-xs h-full">
+        <div className="bg-white rounded-md flex p-4 gap-4 justify-around col-span-2 text-xs h-full">
           <div className="flex flex-col items-center gap-2">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -159,9 +221,9 @@ export default function Alyz() {
             </svg>
 
             <ul className="list-inside list-disc marker:text-green-500">
-              <li>Le texte est trop petit</li>
-              <li>Le texte est trop petit</li>
-              <li>Le texte est trop petit</li>
+              {productInfo.positive.map((message) => (
+                <li>{message}</li>
+              ))}
             </ul>
           </div>
           <div className="flex flex-col items-center gap-2">
@@ -181,9 +243,9 @@ export default function Alyz() {
             </svg>
 
             <ul className="list-inside list-disc marker:text-red-500">
-              <li>Le texte est trop petit</li>
-              <li>Le texte est trop petit</li>
-              <li>Le texte est trop petit</li>
+              {productInfo.negative.map((message) => (
+                <li>{message}</li>
+              ))}
             </ul>
           </div>
         </div>
@@ -192,11 +254,13 @@ export default function Alyz() {
             className="rounded-full h-12 w-12 flex justify-center items-center"
             style={{
               background: `radial-gradient(closest-side, white 79%, transparent 80% 100%),conic-gradient(${
-                satisfaction > 50 ? "rgb(34 197 94)" : "rgb(239 68 68)"
-              } ${satisfaction}%, rgb(243 244 246) 0)`,
+                productInfo.satisfaction > 50
+                  ? "rgb(34 197 94)"
+                  : "rgb(239 68 68)"
+              } ${productInfo.satisfaction}%, rgb(243 244 246) 0)`,
             }}
           >
-            {satisfaction}%
+            {productInfo.satisfaction}%
           </div>
           <div className="text-sm">de satisfaction</div>
         </div>
