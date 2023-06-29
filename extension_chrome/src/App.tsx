@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useEffect, useState, useMemo } from "react";
 import logo from "./assets/logo.png";
 
@@ -9,21 +10,12 @@ export default function Alyz() {
   const [urlImage, setImageUrl] = useState<string>("");
   const [messages, setMessages] = useState<
     { type: "user" | "machine"; message: string }[]
-  >([
-    {
-      type: "machine",
-      message: "Bonjour, je suis Alyz, votre assistant virtuel",
-    },
-  ]);
-  const [productInfo] = useState<{
-    satisfaction: number;
-    positive: string[];
-    negative: string[];
-  }>({
-    satisfaction: 79,
-    positive: ["Bien situé"],
-    negative: ["Pas bien"],
-  });
+  >([]);
+
+  const [productInfo, setProductInfo] = useState<{
+    score: number;
+    summary: string[][];
+  }>();
 
   const domain = useMemo(() => {
     let urlObject;
@@ -32,15 +24,14 @@ export default function Alyz() {
     } catch (e) {
       return false;
     }
-    urlObject = urlObject.hostname.split(".");
-    urlObject = urlObject[urlObject.length - 2];
-    urlObject = urlObject.charAt(0).toUpperCase() + urlObject.slice(1);
-
-    return urlObject;
+    urlObject = urlObject.hostname;
+    urlObject = urlObject.split(".").slice(0, 3).join(".");
+    console.log(urlObject);
+    return urlObject as string;
   }, [url]);
 
   const getDoc = async () => {
-    return chrome.tabs
+    setDoc((await chrome.tabs
       .query({ active: true, currentWindow: true })
       .then((tabs) => {
         const activeTab = tabs[0];
@@ -61,7 +52,7 @@ export default function Alyz() {
       })
       .catch(function (error) {
         console.log(error);
-      });
+      })) as Document)
   };
 
   const getUrl = async () => {
@@ -69,8 +60,24 @@ export default function Alyz() {
     return tabs[0].url;
   };
 
+  const getProductInfo = async () => {
+    const response = await fetch(import.meta.env.VITE_API_URL + "/alyz", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        comments,
+      }),
+    });
+
+    const data = await response.json();
+    setProductInfo(data);
+  };
+
   const sendMessage = async () => {
-    if (!input.length) return;
+    if (!input.length || messages[messages.length - 1]?.type === "user") return;
+
     setMessages((messages) => [...messages, { type: "user", message: input }]);
     setInput("");
     console.log(input, comments);
@@ -79,7 +86,13 @@ export default function Alyz() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ question: input, context: [doc?.getElementById("feature-bullets")?.textContent,...comments ] }),
+      body: JSON.stringify({
+        question: input,
+        context: [
+          doc?.getElementById("feature-bullets")?.textContent,
+          ...comments,
+        ],
+      }),
     });
 
     const data = await response.json();
@@ -93,10 +106,18 @@ export default function Alyz() {
   useEffect(() => {
     const fetchData = async () => {
       setUrl((await getUrl()) as string);
-      setDoc((await getDoc()) as Document);
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!url) return;
+    getDoc()
+  }, [url]);
+
+  useEffect(() => {
+    if(comments.length) getProductInfo();
+  }, [comments]);
 
   useEffect(() => {
     if (!messages.length) return;
@@ -104,165 +125,153 @@ export default function Alyz() {
     messageList?.scrollTo(0, messageList.scrollHeight);
   }, [messages]);
 
+
+
   useEffect(() => {
     if (!doc) return;
     switch (domain) {
-      case "Amazon":
+      case "www.amazon.com":
         setImageUrl(
           doc?.getElementById("landingImage")?.getAttribute("src") as string
         );
-        console.log(doc?.getElementById("productTitle")?.innerText as string);
         setMessages([
           {
             type: "machine",
-            message: "Je vois que vous êtes sur Amazon, sur le produit : ",
+            message: "I see that your are on Amazon on the product page :",
           },
           {
             type: "machine",
-            message: doc?.getElementById("productTitle")?.innerText as string,
+            message: doc
+              ?.getElementById("productTitle")
+              ?.innerText.slice(0, 80) as string,
           },
-          { type: "machine", message: "Je peux vous aider ?" },
+          { type: "machine", message: "Can I help you ?" },
         ]);
 
-        setComments(Array.prototype.slice
-          .call(doc?.getElementsByClassName("review-text"))
-          ?.map((e) => e.innerText))
+        setComments(
+          Array.prototype.slice
+            .call(doc?.getElementsByClassName("review-text"))
+            ?.map((e) => e.innerText)
+        );
 
         break;
     }
-  }, [domain, doc, urlImage]);
+  }, [doc]);
 
-  if (!["Amazon", "Airbnb", "Tripadvisor"].includes(domain as string)) {
+  if (!["www.amazon.com", "Airbnb", "Tripadvisor"].includes(domain as string)) {
     return <div className="text-xl p-4">{domain} not supported</div>;
   }
 
+  if (!productInfo)
+    return (
+      <div className="bg-violet-600 font-bold text-white text-xl justify-center items-center p-4 flex gap-2">
+        Loading...
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          className="w-6 h-6 animate-spin"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+          />
+        </svg>
+      </div>
+    );
+
   return (
-    <div className="w-[34rem] h-96 flex flex-col gap-2 bg-slate-900">
-      <div className="h-full w-full grid grid-cols-3 p-2 justify-center items-center gap-2 text-sm">
-        <div className="bg-white rounded-md flex flex-col items-center justify-center col-span-2 h-64 p-2">
-          <div className="grow flex w-full gap-2 text-white">
-            <div className="flex flex-col gap-2 grow">
-              <div className="flex gap-2 items-center border-b text-black p-2 pt-0">
-                <img src={logo} className="h-6 w-6" />
-                <div className="w-full  font-bold">Alyz</div>
-              </div>
-
-              <div
-                className="flex flex-col gap-2 overflow-scroll h-40 no-scrollbar"
-                id="messageList"
-              >
-                {messages.map((message) => (
-                  <div
-                    className={`max-w-[66%] px-4 py-1 rounded-2xl ${
-                      message.type === "machine"
-                        ? "bg-blue-500 self-start"
-                        : "bg-gray-400 self-end"
-                    }`}
-                  >
-                    {message.message}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="flex gap-2 w-full">
-            <input
-              type="text"
-              className="rounded-full border grow focus:outline-none px-2"
-              placeholder="Posez votre question"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  sendMessage();
-                }
-              }}
-            />
+    <div className="h-[26rem] w-[34rem] bg-gray-100 p-2 flex flex-col gap-2">
+      <div className="flex gap-2 justify-center items-center w-full">
+        <img src={logo} className="h-6 w-6" />
+        <div className="font-belanosima text-2xl text-violet-600">Alyz</div>
+      </div>
+      <div className="flex flex-col gap-2 grow">
+        <div className="flex gap-2 w-full h-2/3">
+          <div className="bg-white shadow flex flex-col rounded-lg gap-2 p-2 w-2/3 h-full">
             <div
-              className="bg-blue-500 rounded-full stroke-white p-2 shadow"
-              onClick={sendMessage}
+              className="flex flex-col gap-2 overflow-scroll no-scrollbar h-0 grow"
+              id="messageList"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-                className="w-4 h-4 stroke-white"
+              {messages.map((message) => (
+                <div
+                  className={`max-w-[66%] px-4 py-1 rounded-2xl break-words text-white ${
+                    message.type === "machine"
+                      ? "bg-blue-500 self-start"
+                      : "bg-gray-400 self-end"
+                  }`}
+                >
+                  {message.message}
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                disabled={messages[messages.length - 1]?.type === "user"}
+                type="text"
+                className="rounded-full border focus:outline-none p-2 grow"
+                placeholder="Posez votre question"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    sendMessage();
+                  }
+                }}
+              />
+              <div
+                className="bg-blue-500 rounded-full stroke-white shadow flex justify-center items-center aspect-square h-full"
+                onClick={sendMessage}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
-                />
-              </svg>
+                <svg
+                  xmlns="http:www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  className="w-4 h-4 stroke-white"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
+                  />
+                </svg>
+              </div>
             </div>
           </div>
+          <div className="grow h-full bg-white shadow rounded-lg overflow-hidden max-w-[30%]">
+            <img src={urlImage} className="object-cover w-full h-full" />
+          </div>
         </div>
-
-        <div className="bg-white rounded-md h-64 overflow-hidden flex justify-center items-center">
-          <img src={urlImage} className="object-cover h-full" />
-        </div>
-        <div className="bg-white rounded-md flex p-4 gap-4 justify-around col-span-2 text-xs h-full">
-          <div className="flex flex-col items-center gap-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="w-5 h-5 stroke-green-500"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6.633 10.5c.806 0 1.533-.446 2.031-1.08a9.041 9.041 0 012.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 00.322-1.672V3a.75.75 0 01.75-.75A2.25 2.25 0 0116.5 4.5c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 01-2.649 7.521c-.388.482-.987.729-1.605.729H13.48c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 00-1.423-.23H5.904M14.25 9h2.25M5.904 18.75c.083.205.173.405.27.602.197.4-.078.898-.523.898h-.908c-.889 0-1.713-.518-1.972-1.368a12 12 0 01-.521-3.507c0-1.553.295-3.036.831-4.398C3.387 10.203 4.167 9.75 5 9.75h1.053c.472 0 .745.556.5.96a8.958 8.958 0 00-1.302 4.665c0 1.194.232 2.333.654 3.375z"
-              />
-            </svg>
-
-            <ul className="list-inside list-disc marker:text-green-500">
-              {productInfo.positive.map((message) => (
-                <li>{message}</li>
+        <div className="flex gap-2 w-full grow">
+          <div className="bg-white shadow flex flex-col gap-2 rounded-lg p-2 w-2/3 h-full">
+            <div className="font-bold text-base">Reviews</div>
+            <div className="flex gap-2 grow flex-wrap">
+              {productInfo.summary[1].map((message) => (
+                <div className="px-2 py-1 rounded-full bg-green-200 text-green-600">
+                  {message}
+                </div>
               ))}
-            </ul>
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="w-5 h-5 stroke-red-500"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M7.5 15h2.25m8.024-9.75c.011.05.028.1.052.148.591 1.2.924 2.55.924 3.977a8.96 8.96 0 01-.999 4.125m.023-8.25c-.076-.365.183-.75.575-.75h.908c.889 0 1.713.518 1.972 1.368.339 1.11.521 2.287.521 3.507 0 1.553-.295 3.036-.831 4.398C20.613 14.547 19.833 15 19 15h-1.053c-.472 0-.745-.556-.5-.96a8.95 8.95 0 00.303-.54m.023-8.25H16.48a4.5 4.5 0 01-1.423-.23l-3.114-1.04a4.5 4.5 0 00-1.423-.23H6.504c-.618 0-1.217.247-1.605.729A11.95 11.95 0 002.25 12c0 .434.023.863.068 1.285C2.427 14.306 3.346 15 4.372 15h3.126c.618 0 .991.724.725 1.282A7.471 7.471 0 007.5 19.5a2.25 2.25 0 002.25 2.25.75.75 0 00.75-.75v-.633c0-.573.11-1.14.322-1.672.304-.76.93-1.33 1.653-1.715a9.04 9.04 0 002.86-2.4c.498-.634 1.226-1.08 2.032-1.08h.384"
-              />
-            </svg>
-
-            <ul className="list-inside list-disc marker:text-red-500">
-              {productInfo.negative.map((message) => (
-                <li>{message}</li>
+              {productInfo.summary[0].map((message) => (
+                <div className="px-2 py-1 rounded-full bg-red-200 text-red-600">
+                  {message}
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
-        </div>
-        <div className="bg-white rounded-md flex items-center justify-center gap-2 p-2 h-full">
-          <div
-            className="rounded-full h-12 w-12 flex justify-center items-center"
-            style={{
-              background: `radial-gradient(closest-side, white 79%, transparent 80% 100%),conic-gradient(${
-                productInfo.satisfaction > 50
-                  ? "rgb(34 197 94)"
-                  : "rgb(239 68 68)"
-              } ${productInfo.satisfaction}%, rgb(243 244 246) 0)`,
-            }}
-          >
-            {productInfo.satisfaction}%
+          <div className="shadow flex flex-col justify-center gap-2 rounded-lg p-2 h-full bg-violet-500 text-white grow">
+            <div>
+              <span className="text-3xl font-bold">
+                {Math.round(productInfo.score*100)}
+              </span>
+              %
+            </div>
+            <div>of satisfaction</div>
           </div>
-          <div className="text-sm">de satisfaction</div>
         </div>
       </div>
     </div>
