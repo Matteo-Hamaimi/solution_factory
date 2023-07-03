@@ -10,7 +10,8 @@ export default function Alyz() {
   const [urlImage, setImageUrl] = useState<string>("");
   const [messages, setMessages] = useState<
     { type: "user" | "machine"; message: string }[]
-  >([]);
+  >([])
+  const [description, setDescription] = useState<string>("");
 
   const [productInfo, setProductInfo] = useState<{
     score: number;
@@ -80,7 +81,7 @@ export default function Alyz() {
 
     setMessages((messages) => [...messages, { type: "user", message: input }]);
     setInput("");
-    console.log(input, comments);
+    console.log(input, description);
     const response = await fetch(import.meta.env.VITE_API_URL + "/chatbot", {
       method: "POST",
       headers: {
@@ -88,10 +89,7 @@ export default function Alyz() {
       },
       body: JSON.stringify({
         question: input,
-        context: [
-          doc?.getElementById("feature-bullets")?.textContent,
-          ...comments,
-        ],
+        context: description,
       }),
     });
 
@@ -116,6 +114,9 @@ export default function Alyz() {
   }, [url]);
 
   useEffect(() => {
+    console.log(comments);
+    console.log(description)
+    console.log(urlImage)
     if(comments.length) getProductInfo();
   }, [comments]);
 
@@ -154,18 +155,85 @@ export default function Alyz() {
             ?.map((e) => e.innerText)
         );
 
+        setDescription(
+          doc.querySelector('div#productOverview_feature_div div.a-section.a-spacing-small.a-spacing-top-small')?.textContent as string +
+          doc.getElementById("feature-bullets")?.textContent as string
+        );
+
+        break;
+      case "www.airbnb.fr":
+        setImageUrl(
+          doc?.getElementById("FMP-target")?.getAttribute("src") as string
+        );
+
+        setMessages([
+          {
+            type: "machine",
+            message: "I see that your are on Airbnb on the product page :",
+          },
+          {
+            type: "machine",
+            message: doc?.querySelector("h1.hpipapi.i1pmzyw7")?.textContent as string,
+          },
+          { type: "machine", message: "Can I help you ?" },
+
+        ]);
+
+        setComments(
+          Array.prototype.slice
+            .call(doc.querySelectorAll('._162hp8xh .ll4r2nl.dir.dir-ltr'))
+            ?.map((e) => e.innerText)
+        );
+
+        setDescription(
+          doc?.querySelector(".d1isfkwk .ll4r2nl.dir.dir-ltr")?.textContent as string
+        );
+
+        break;
+      case "www.tripadvisor.com":
+        setImageUrl(
+          doc?.querySelector(".NhWcC._R.mdkdE > img")?.getAttribute("src") as string
+        );
+
+        setMessages([
+          {
+
+            type: "machine",
+            message: "I see that your are on Tripadvisor on the product page :",
+          },
+          {
+            type: "machine",
+            message: doc?.querySelector(".biGQs._P.rRtyp")?.textContent as string,
+          },
+          { type: "machine", message: "Can I help you ?" },
+
+        ]);
+
+        setComments(
+          Array.prototype.slice
+            .call(doc.querySelectorAll('.vTVDc'))
+            ?.map((e) => e.innerText)
+        );
+        console.log(comments)
+          
+        setDescription(
+          doc?.querySelector(".cPQsENeY")?.textContent as string
+        );
+          
         break;
     }
   }, [doc]);
 
-  if (!["www.amazon.com", "Airbnb", "Tripadvisor"].includes(domain as string)) {
+  if (!["www.amazon.com", 'www.airbnb.fr', "www.tripadvisor.com"].includes(domain as string)) {
     return <div className="text-xl p-4">{domain} not supported</div>;
   }
 
   if (!productInfo)
     return (
+      <>
       <div className="bg-violet-600 font-bold text-white text-xl justify-center items-center p-4 flex gap-2">
         Loading...
+        
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
@@ -181,6 +249,7 @@ export default function Alyz() {
           />
         </svg>
       </div>
+      </>
     );
 
   return (
@@ -252,12 +321,12 @@ export default function Alyz() {
             <div className="font-bold text-base">Reviews</div>
             <div className="flex gap-2 grow flex-wrap">
               {productInfo.summary[1].map((message) => (
-                <div className="px-2 py-1 rounded-full bg-green-200 text-green-600">
+                <div className="px-2 py-1 rounded-full bg-green-200 text-green-600 h-min">
                   {message}
                 </div>
               ))}
               {productInfo.summary[0].map((message) => (
-                <div className="px-2 py-1 rounded-full bg-red-200 text-red-600">
+                <div className="px-2 py-1 rounded-full bg-red-200 text-red-600 h-min">
                   {message}
                 </div>
               ))}
