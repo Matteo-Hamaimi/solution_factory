@@ -317,7 +317,7 @@ export default function Alyz() {
           </div>
           <div className="grow h-full bg-white shadow rounded-lg overflow-hidden max-w-[30%] relative">
             <img src={urlImage} className="object-cover w-full h-full" />
-            <div className="bg-white rounded-full text-xs top-2 left-2 shadow-md border">
+            <div className="bg-white rounded-full text-xs top-2 left-2 shadow-md border absolute z-10">
                 {price}
             </div>
           </div>
