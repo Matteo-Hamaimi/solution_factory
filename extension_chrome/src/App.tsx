@@ -69,6 +69,7 @@ export default function Alyz() {
       },
       body: JSON.stringify({
         comments,
+        domain,
       }),
     });
 
@@ -217,7 +218,6 @@ export default function Alyz() {
             .call(doc.querySelectorAll('.vTVDc'))
             ?.map((e) => e.innerText)
         );
-        console.log(comments)
           
         setDescription(
           doc?.querySelector(".cPQsENeY")?.textContent as string
