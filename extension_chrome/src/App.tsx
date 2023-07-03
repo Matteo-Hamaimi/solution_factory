@@ -133,7 +133,7 @@ export default function Alyz() {
     switch (domain) {
       case "www.amazon.com":
         setPrice(
-          doc?.getElementById("corePrice_feature_div")?.textContent as string
+          doc?.querySelector("#corePrice_feature_div span.a-offscreen")?.textContent as string
         )
         setImageUrl(
           doc?.getElementById("landingImage")?.getAttribute("src") as string
@@ -317,7 +317,7 @@ export default function Alyz() {
           </div>
           <div className="grow h-full bg-white shadow rounded-lg overflow-hidden max-w-[30%] relative">
             <img src={urlImage} className="object-cover w-full h-full" />
-            <div className="bg-white rounded-full text-xs top-2 left-2 shadow-md border absolute z-10">
+            <div className="text-white bg-violet-600 rounded-full text-xs top-2 left-2 shadow-md absolute z-10 p-1">
                 {price}
             </div>
           </div>
