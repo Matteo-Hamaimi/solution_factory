@@ -12,7 +12,7 @@ export default function Alyz() {
     { type: "user" | "machine"; message: string }[]
   >([])
   const [description, setDescription] = useState<string>("");
-
+  const [price, setPrice] = useState<string>("");
   const [productInfo, setProductInfo] = useState<{
     score: number;
     summary: string[][];
@@ -132,6 +132,9 @@ export default function Alyz() {
     if (!doc) return;
     switch (domain) {
       case "www.amazon.com":
+        setPrice(
+          doc?.getElementById("corePrice_feature_div")?.textContent as string
+        )
         setImageUrl(
           doc?.getElementById("landingImage")?.getAttribute("src") as string
         );
@@ -312,8 +315,11 @@ export default function Alyz() {
               </div>
             </div>
           </div>
-          <div className="grow h-full bg-white shadow rounded-lg overflow-hidden max-w-[30%]">
+          <div className="grow h-full bg-white shadow rounded-lg overflow-hidden max-w-[30%] relative">
             <img src={urlImage} className="object-cover w-full h-full" />
+            <div className="bg-white rounded-full text-xs top-2 left-2 shadow-md border">
+                {price}
+            </div>
           </div>
         </div>
         <div className="flex gap-2 w-full grow">
