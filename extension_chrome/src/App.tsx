@@ -10,7 +10,7 @@ export default function Alyz() {
   const [urlImage, setImageUrl] = useState<string>("");
   const [messages, setMessages] = useState<
     { type: "user" | "machine"; message: string }[]
-  >([])
+  >([]);
   const [description, setDescription] = useState<string>("");
   const [price, setPrice] = useState<string>("");
   const [productInfo, setProductInfo] = useState<{
@@ -32,28 +32,30 @@ export default function Alyz() {
   }, [url]);
 
   const getDoc = async () => {
-    setDoc((await chrome.tabs
-      .query({ active: true, currentWindow: true })
-      .then((tabs) => {
-        const activeTab = tabs[0];
-        const activeTabId = activeTab.id;
+    setDoc(
+      (await chrome.tabs
+        .query({ active: true, currentWindow: true })
+        .then((tabs) => {
+          const activeTab = tabs[0];
+          const activeTabId = activeTab.id;
 
-        console.log(activeTab.url);
+          console.log(activeTab.url);
 
-        return chrome.scripting.executeScript({
-          target: { tabId: activeTabId as number },
-          func: () => document.querySelector("body")?.innerHTML,
-        });
-      })
-      .then(function (results) {
-        return new DOMParser().parseFromString(
-          results[0].result as string,
-          "text/html"
-        );
-      })
-      .catch(function (error) {
-        console.log(error);
-      })) as Document)
+          return chrome.scripting.executeScript({
+            target: { tabId: activeTabId as number },
+            func: () => document.querySelector("body")?.innerHTML,
+          });
+        })
+        .then(function (results) {
+          return new DOMParser().parseFromString(
+            results[0].result as string,
+            "text/html"
+          );
+        })
+        .catch(function (error) {
+          console.log(error);
+        })) as Document
+    );
   };
 
   const getUrl = async () => {
@@ -111,14 +113,14 @@ export default function Alyz() {
 
   useEffect(() => {
     if (!url) return;
-    getDoc()
+    getDoc();
   }, [url]);
 
   useEffect(() => {
     console.log(comments);
-    console.log(description)
-    console.log(urlImage)
-    if(comments.length) getProductInfo();
+    console.log(description);
+    console.log(urlImage);
+    if (comments.length) getProductInfo();
   }, [comments]);
 
   useEffect(() => {
@@ -127,15 +129,14 @@ export default function Alyz() {
     messageList?.scrollTo(0, messageList.scrollHeight);
   }, [messages]);
 
-
-
   useEffect(() => {
     if (!doc) return;
     switch (domain) {
       case "www.amazon.com":
         setPrice(
-          doc?.querySelector("#corePrice_feature_div span.a-offscreen")?.textContent as string
-        )
+          doc?.querySelector("#corePrice_feature_div span.a-offscreen")
+            ?.textContent as string
+        );
         setImageUrl(
           doc?.getElementById("landingImage")?.getAttribute("src") as string
         );
@@ -160,12 +161,16 @@ export default function Alyz() {
         );
 
         setDescription(
-          doc.querySelector('div#productOverview_feature_div div.a-section.a-spacing-small.a-spacing-top-small')?.textContent as string +
-          doc.getElementById("feature-bullets")?.textContent as string
+          ((doc.querySelector(
+            "div#productOverview_feature_div div.a-section.a-spacing-small.a-spacing-top-small"
+          )?.textContent as string) +
+            doc.getElementById("feature-bullets")?.textContent) as string
         );
 
         break;
       case "www.airbnb.fr":
+        setPrice(doc?.querySelector("._tyxjp1")?.textContent as string);
+
         setImageUrl(
           doc?.getElementById("FMP-target")?.getAttribute("src") as string
         );
@@ -177,81 +182,87 @@ export default function Alyz() {
           },
           {
             type: "machine",
-            message: doc?.querySelector("h1.hpipapi.i1pmzyw7")?.textContent as string,
+            message: doc?.querySelector("h1.hpipapi.i1pmzyw7")
+              ?.textContent as string,
           },
           { type: "machine", message: "Can I help you ?" },
-
         ]);
 
         setComments(
           Array.prototype.slice
-            .call(doc.querySelectorAll('._162hp8xh .ll4r2nl.dir.dir-ltr'))
+            .call(doc.querySelectorAll("._162hp8xh .ll4r2nl.dir.dir-ltr"))
             ?.map((e) => e.innerText)
         );
 
         setDescription(
-          doc?.querySelector(".d1isfkwk .ll4r2nl.dir.dir-ltr")?.textContent as string
+          doc?.querySelector(".d1isfkwk .ll4r2nl.dir.dir-ltr")
+            ?.textContent as string
         );
 
         break;
       case "www.tripadvisor.com":
+
+        setPrice(doc?.querySelector('.mcvYL.b')?.textContent as string)
+
         setImageUrl(
-          doc?.querySelector(".NhWcC._R.mdkdE > img")?.getAttribute("src") as string
+          doc
+            ?.querySelector(".NhWcC._R.mdkdE > img")
+            ?.getAttribute("src") as string
         );
 
         setMessages([
           {
-
             type: "machine",
             message: "I see that your are on Tripadvisor on the product page :",
           },
           {
             type: "machine",
-            message: doc?.querySelector(".biGQs._P.rRtyp")?.textContent as string,
+            message: doc?.querySelector(".biGQs._P.rRtyp")
+              ?.textContent as string,
           },
           { type: "machine", message: "Can I help you ?" },
-
         ]);
 
         setComments(
           Array.prototype.slice
-            .call(doc.querySelectorAll('.vTVDc'))
+            .call(doc.querySelectorAll(".vTVDc"))
             ?.map((e) => e.innerText)
         );
-          
-        setDescription(
-          doc?.querySelector(".cPQsENeY")?.textContent as string
-        );
-          
+
+        setDescription(doc?.querySelector(".cPQsENeY")?.textContent as string);
+
         break;
     }
   }, [doc]);
 
-  if (!["www.amazon.com", 'www.airbnb.fr', "www.tripadvisor.com"].includes(domain as string)) {
+  if (
+    !["www.amazon.com", "www.airbnb.fr", "www.tripadvisor.com"].includes(
+      domain as string
+    )
+  ) {
     return <div className="text-xl p-4">{domain} not supported</div>;
   }
 
   if (!productInfo)
     return (
       <>
-      <div className="bg-violet-600 font-bold text-white text-xl justify-center items-center p-4 flex gap-2">
-        Loading...
-        
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke-width="1.5"
-          stroke="currentColor"
-          className="w-6 h-6 animate-spin"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
-          />
-        </svg>
-      </div>
+        <div className="bg-violet-600 font-bold text-white text-xl justify-center items-center p-4 flex gap-2">
+          Loading...
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            className="w-6 h-6 animate-spin"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+            />
+          </svg>
+        </div>
       </>
     );
 
@@ -318,7 +329,7 @@ export default function Alyz() {
           <div className="grow h-full bg-white shadow rounded-lg overflow-hidden max-w-[30%] relative">
             <img src={urlImage} className="object-cover w-full h-full" />
             <div className="text-white bg-violet-600 rounded-full text-xs top-2 left-2 shadow-md absolute z-10 p-1">
-                {price}
+              {price}
             </div>
           </div>
         </div>
@@ -341,7 +352,7 @@ export default function Alyz() {
           <div className="shadow flex flex-col justify-center gap-2 rounded-lg p-2 h-full bg-violet-500 text-white grow">
             <div>
               <span className="text-3xl font-bold">
-                {Math.round(productInfo.score*100)}
+                {Math.round(productInfo.score * 100)}
               </span>
               %
             </div>
