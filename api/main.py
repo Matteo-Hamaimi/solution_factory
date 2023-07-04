@@ -76,8 +76,8 @@ def get_chat_bot(question, context):
     return google_analyzer(answer)[0]["generated_text"]
 
 
-def get_summary(get_scores):
-    threshold = 0.2
+def get_summary(get_scores, domain):
+    threshold = 0.3
 
     if len(get_scores) < 6:
         comment_bad = "".join(get_scores[1]["comment"])
@@ -94,8 +94,16 @@ def get_summary(get_scores):
             + "".join(get_scores[-1]["comment"])
         )
 
-    result_bad = point_analyzer(comment_bad, negative_words)
-    result_good = point_analyzer(comment_good, positive_words)
+    if domain == "www.amazon.com":
+        positive = positive_words
+        negative = negative_words
+    else:
+        positive = positive_words_IMMO
+        negative = negative_words_IMMO
+    print(domain)
+    print(positive)
+    result_bad = point_analyzer(comment_bad, negative)
+    result_good = point_analyzer(comment_good, positive)
 
     sorted_labels_bad = [
         label
@@ -135,6 +143,23 @@ negative_words = [
     "Expensive",
 ]
 
+positive_words_IMMO = [
+    "Well-located",
+    "Clean",
+    "Comfortable",
+    "Well-equipped",
+    "Responsive host",
+]
+
+negative_words_IMMO = [
+    "Poorly maintained",
+    "Dirty",
+    "Communication issues",
+    "Disappointing",
+    "Misleading photos",
+]
+
+
 summary_words = [
     "Reliable",
     "Efficient",
@@ -158,11 +183,11 @@ def index():
 def analyze_website():
     try:
         comments = np.array(request.get_json()["comments"])
+        domain = request.get_json()["domain"]
         var_get_scores = get_scores(comments)
-
         return {
             "score": get_global_score(var_get_scores, comments),
-            "summary": get_summary(var_get_scores),
+            "summary": get_summary(var_get_scores, domain),
         }
     except KeyError as e:
         return f"Une clé invalide a été utilisée : {e}", 400
